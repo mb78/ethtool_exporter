@@ -18,7 +18,7 @@ class EthtoolCollector(object):
     interesting_items = re.compile(
         r"""\W*(
             rx_no_dma_resources|Speed|Duplex|
-            (tx|rx)_queue_(\d+)_(bytes|packets)|
+            (tx|rx)_queue_(\d+)_(bytes|packets|drops|discards)|
             (rx|tx)_(packets|bytes|broadcast|multicast|errors)
             )
         """,
@@ -62,6 +62,9 @@ class EthtoolCollector(object):
                     )
                 sys.exit()
         for line in data.splitlines():
+            r=re.match(r"\W+\[(\d+)\]:\W+(rx|tx)_(.*)",line) # convert [0] rx_drops: VALUE => rx_queue_0_drops: VALUE
+            if (r):
+                line=' {}_queue_{}_{}'.format(r.group(2),r.group(1),r.group(3))
             if self.item_is_interesting(line):
                 name, documentation, labels, value  = self.parse_line(line)
                 labels.insert(0, ("interface", interface))
@@ -124,7 +127,7 @@ class EthtoolCollector(object):
             return (None, None, None, None)
         item, value = stat_match.group(1), stat_match.group(2)
         documentation = item
-        queue_match = re.match(r"(tx|rx)_queue_(\d+)_(bytes|packets)", item)
+        queue_match = re.match(r"(tx|rx)_queue_(\d+)_(bytes|packets|drops|discards)", item)
         if queue_match:
             labels.append(('queue', queue_match.group(2)))
             item = "{}_queue_{}".format(
